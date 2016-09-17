@@ -357,11 +357,24 @@ var TinyReactRTE = React.createClass({
     this.setState({content:content, push_selection:ret_path});
   },
   
+  calc_display_path: function() {
+    var path = this.state.start_path;
+    if (path==null) return [];
+    var ret = [];
+    var node = this.state.content;
+    for (var i=0; i<path.length; ++i) {
+      if (node.type) ret.push(node.type);
+      if (i<path.length-1) node = node.children[path[i]];
+    }
+    return ret;
+  },
     
   render: function() {
     var content = this.state.content;
+    var display_path = this.calc_display_path().map(function(x,i) {return (<span key={i}><span style={{color:'#bbb'}}>&nbsp;&gt;&nbsp;</span>{x}</span>);});
     return (
       <div>
+        <div style={{borderBottom:'1px solid #eee', color:'#777', fontSize:'smaller'}}><code>{display_path}</code></div>
         <div contentEditable="true" suppressContentEditableWarning="true" ref="root" style={{outline:"0px solid transparent", minHeight:'1.2em'}} 
           onKeyUp={this.onKeyUcp} onKeyDown={this.onKeyDown} onKeyPress={this.onKeyPress} onClick={this.onCclick} onSelect={this.onSelect} onPaste={this.onPaste}>
           {content.toReact()}
