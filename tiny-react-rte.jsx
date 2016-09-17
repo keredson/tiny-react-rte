@@ -261,12 +261,9 @@ var TinyReactRTE = React.createClass({
     if (v=='Enter') v = new TinyReactRTENode(null, 'br');
     var ret_path = []
     content = content.del(this.state.start_path, this.state.end_path, ret_path);
-    console.log('content', content, ret_path);
     var insert_path = ret_path;
     ret_path = []
     content = content.insert(insert_path, v, ret_path);
-    console.log('content2', content, ret_path);
-    
 //    this.saveState();
     this.setState({content:content, push_selection:ret_path});
   },
@@ -350,8 +347,14 @@ var TinyReactRTE = React.createClass({
     var text = e.clipboardData.getData('text/plain') || e.clipboardData.getData('Text');
     console.log('onPaste', html || text);
     var value = html ? this.parseHTML(html) : text;
-    var content = this.state.content.replace(this.state.start_path, this.state.end_path, value);
-    this.setState({content:this.strip(content)});
+    var content = this.state.content;
+    var ret_path = []
+    content = content.del(this.state.start_path, this.state.end_path, ret_path);
+    var insert_path = ret_path;
+    ret_path = []
+    content = content.insert(insert_path, value, ret_path);
+//    this.saveState();
+    this.setState({content:content, push_selection:ret_path});
   },
   
     
