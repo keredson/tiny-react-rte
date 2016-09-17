@@ -39,11 +39,12 @@ TinyReactRTENode.prototype = {
       var children = this.children.slice(0, start_path[0]);
       var left = this.children[start_path[0]].keepLeft(start_path.slice(1));
       var right = this.children[end_path[0]].keepRight(end_path.slice(1));
+      console.log('left', left)
       console.log('right', right)
-      if (left.children && right!=null && right.children) {
+      if (left!=null && left.children && right!=null && right.children) {
         children.push(left.merge(right));
-      } else {
-        children.push(left);
+s      } else {
+        if (left!=null) children.push(left);
         if (right!=null) children.push(right);
       }
       children = children.concat(this.children.slice(end_path[0]+1));
@@ -103,9 +104,14 @@ TinyReactRTENode.prototype = {
   
   keepLeft: function(path) {
     console.log('keepLeft', this, path)
-    if (this.value!=null) return new TinyReactRTENode(this.id, this.type, null, this.value.slice(0,path[0]));
+    if (this.value!=null) {
+      if (path[0] == 0) return null;
+      return new TinyReactRTENode(this.id, this.type, null, this.value.slice(0,path[0]));
+    }
     var children = this.children.slice(0, path[0]);
-    children.push(this.children[path[0]].keepLeft(path.slice(1)));
+    var x = this.children[path[0]].keepLeft(path.slice(1));
+    if (x!=null) children.push(x);
+    if (children.length==0) return null;
     return new TinyReactRTENode(this.id, this.type, children);
   },
 
@@ -265,10 +271,10 @@ var TinyReactRTE = React.createClass({
     console.log('onKeyPress', e.key)
     var content = this.state.content;
     console.log('content', content);
-    var v = e.key;
-    if (v=='Enter') v = new TinyReactRTENode(null, 'br');
     var ret_path = []
     content = content.del(this.state.start_path, this.state.end_path, ret_path);
+    var v = e.key;
+    if (v=='Enter') v = new TinyReactRTENode(null, 'br');
     var insert_path = ret_path;
     ret_path = []
     content = content.insert(insert_path, v, ret_path);
