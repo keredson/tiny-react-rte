@@ -69,7 +69,20 @@ TinyReactRTENode.prototype = {
         console.log('todoxxxx', s)
         return new TinyReactRTENode(this.id, this.type, null, s);
       } else {
-        console.log('todo')
+        var right = new TinyReactRTENode(null, null, null, this.value.slice(insert_path[0]));
+        console.log('middle', v)
+        console.log('right', right)
+        if (insert_path[0]==0) {
+          ret_path.push(1);
+          ret_path.push(0);
+          return new TinyReactRTENode(this.id, 'span', [v, right]);
+        } else {
+          var left = new TinyReactRTENode(null, null, null, this.value.slice(0,insert_path[0]));
+          console.log('left', left)
+          ret_path.push(2);
+          ret_path.push(0);
+          return new TinyReactRTENode(this.id, 'span', [left, v, right]);
+        }
       }
     }
   },
@@ -280,32 +293,6 @@ var TinyReactRTE = React.createClass({
   },
 
   componentDidMount: function() {
-//    this.moveSelection();
-  },
-  
-//  componentDidUpdate: function() {
-//    this.moveSelection();
-//  },
-  
-  moveSelection: function(path, node) {
-    console.log('moveSelection', path, node)
-    if (!path) {
-      path = this.state.start_path;
-      node = this.refs.root;
-    }
-    if (path.length==1) {
-      var range = document.createRange();
-      var sel = window.getSelection();
-      range.setStart(node, path[0]);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    } else {
-      var p = path[0];
-      var children = toArray(node.childNodes).filter(function(n) {return n.id});
-      console.log('children', p, children)
-      this.moveSelection(path.slice(1), children[path[0]]);
-    }
   },
   
   onClick: function(e) {
@@ -316,9 +303,9 @@ var TinyReactRTE = React.createClass({
     if (e.key=="ArrowUp" || e.key=="ArrowDown" || e.key=="ArrowLeft" || e.key=="ArrowRight") return;
     if (this.state.is_range && (e.key=="Backspace" || e.key=="Delete")) {
       e.preventDefault();
-      var content = this.state.content.replace(this.state.start_path, this.state.end_path, '');
-      var push_selection = this.state.start_path[this.state.start_path.length-1];
-      this.setState({content:this.strip(content), push_selection:push_selection});
+      var ret_path = []
+      var content = this.state.content.del(this.state.start_path, this.state.end_path, ret_path);
+      this.setState({content:content, push_selection:ret_path});
     }
   },
   
