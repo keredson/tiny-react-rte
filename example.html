@@ -16,8 +16,9 @@
         ></div>
     <script src="tiny-react-rte.jsx" type="text/babel"></script>
     <script type="text/babel">
+      var html = null; // put html string here
       ReactDOM.render(
-        <TinyReactRTE showMarkup={true} />,
+        <TinyReactRTE showMarkup={true} html={html}/>,
         document.getElementById('content')
       );
     </script>

@@ -46,7 +46,7 @@ TinyReactRTENode.prototype = {
       var children = this.children.slice(0, start_path[0]);
       var left = this.children[start_path[0]].keepLeft(start_path.slice(1));
       var right = this.children[end_path[0]].keepRight(end_path.slice(1));
-      if (left.children && right.children && v==null) {
+      if (left.children && right.children && !v) {
         children.push(left.merge(right));
       } else {
         children.push(left);
@@ -162,7 +162,9 @@ var TinyReactRTE = React.createClass({
   },
 
   getInitialState: function() {
-    var content = this.parseHTML("<div>Derek <i>Anderson</i></div><div><b>was</b> here!</div>");
+    var html = this.props.html;
+    if (html==null) html = "<h1>Congrats!</h1><p>Your <b>TinyReactRTE</b> module is loading.  Now please set the <i><code>html</code></i> parameter to control this element. &nbsp; For example:</p><pre>  <code>&lt;TinyReactRTE html={\"yada yada yada...\"} /&gt;</code></pre><p>See?  Super easy!<br><a href='https://github.com/keredson/tiny-react-rte'>https://github.com/keredson/tiny-react-rte</a></p>"
+    var content = this.parseHTML(html);
     return {
       content: content,
       history: [],
