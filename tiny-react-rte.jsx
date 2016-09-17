@@ -19,6 +19,7 @@ TinyReactRTENode.prototype = {
 
   del: function(start_path, end_path, ret_path) {
     console.log('del', this, start_path, end_path);
+    if (start_path.length==0 && end_path.length==0) return this;
     if (start_path[0]==end_path[0] && this.children) {
       var i = start_path[0];
       var children = this.children.slice(0, i);
@@ -27,7 +28,7 @@ TinyReactRTENode.prototype = {
       children.push(this.children[i].del(new_start_path, new_end_path, ret_path));
       children = children.concat(this.children.slice(i+1));
       console.log('a')
-      ret_path.unshift(start_path[0]);
+      ret_path.unshift(i);
       return new TinyReactRTENode(this.id, this.type, children);
     } else if (this.value!=null) {
       var s = this.value.slice(0, start_path[0]) + this.value.slice(end_path[0]);
@@ -38,7 +39,8 @@ TinyReactRTENode.prototype = {
       var children = this.children.slice(0, start_path[0]);
       var left = this.children[start_path[0]].keepLeft(start_path.slice(1));
       var right = this.children[end_path[0]].keepRight(end_path.slice(1));
-      if (left.children && right!=null && right.children && left.type==right.type) {
+      console.log('right', right)
+      if (left.children && right!=null && right.children) {
         children.push(left.merge(right));
       } else {
         children.push(left);
@@ -69,7 +71,7 @@ TinyReactRTENode.prototype = {
         console.log('todoxxxx', s)
         return new TinyReactRTENode(this.id, this.type, null, s);
       } else {
-        var right = new TinyReactRTENode(null, null, null, this.value.slice(insert_path[0]));
+        var right = this.value==null ? new TinyReactRTENode(null, 'span', this.children.slice(insert_path[0])) : new TinyReactRTENode(null, null, null, this.value.slice(insert_path[0]));
         console.log('middle', v)
         console.log('right', right)
         if (insert_path[0]==0) {
@@ -90,7 +92,13 @@ TinyReactRTENode.prototype = {
   merge: function(right) {
     var left = this;
     console.log('merge', left, right)
-    return new TinyReactRTENode(left.id, left.type, left.children.concat(right.children));
+    if (left.type==right.type) {
+      return new TinyReactRTENode(left.id, left.type, left.children.concat(right.children));
+    } else {
+      var children = left.children.slice(0);
+      children.push(right);
+      return new TinyReactRTENode(left.id, left.type, children);
+    }
   },
   
   keepLeft: function(path) {
@@ -371,6 +379,7 @@ var TinyReactRTE = React.createClass({
     
   render: function() {
     var content = this.state.content;
+    console.log('render', content)
     var display_path = this.calc_display_path().map(function(x,i) {return (<span key={i}><span style={{color:'#bbb'}}>&nbsp;&gt;&nbsp;</span>{x}</span>);});
     return (
       <div>
