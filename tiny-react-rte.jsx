@@ -17,48 +17,60 @@ var TinyReactRTENode = function(id, type, children, value) {
 
 TinyReactRTENode.prototype = {
 
-  replace: function(start_path, end_path, v) {
-    console.log('replace', this, start_path, end_path, v);
+  del: function(start_path, end_path, ret_path) {
+    console.log('del', this, start_path, end_path);
     if (start_path[0]==end_path[0] && this.children) {
       var i = start_path[0];
       var children = this.children.slice(0, i);
       var new_start_path = start_path.slice(1);
       var new_end_path = end_path.slice(1);
-      children.push(this.children[i].replace(new_start_path, new_end_path, v));
+      children.push(this.children[i].del(new_start_path, new_end_path, ret_path));
       children = children.concat(this.children.slice(i+1));
       console.log('a')
+      ret_path.unshift(start_path[0]);
       return new TinyReactRTENode(this.id, this.type, children);
     } else if (this.value!=null) {
-      if (typeof v === 'string') {
-        var s = this.value.slice(0, start_path[0]) + v + this.value.slice(end_path[0]);
-        console.log('b')
-        return new TinyReactRTENode(this.id, this.type, null, s);
-      } else {
-        var children = [
-          new TinyReactRTENode(null, null, null, this.value.slice(0, start_path[0])), 
-          v,
-          new TinyReactRTENode(null, null, null, this.value.slice(end_path[0]))
-        ];
-        console.log('c', children)
-        return new TinyReactRTENode(this.id, 'div', children);
-      }
+      var s = this.value.slice(0, start_path[0]) + this.value.slice(end_path[0]);
+      console.log('b')
+      ret_path.unshift(start_path[0]);
+      return new TinyReactRTENode(this.id, this.type, null, s);
     } else {
       var children = this.children.slice(0, start_path[0]);
       var left = this.children[start_path[0]].keepLeft(start_path.slice(1));
       var right = this.children[end_path[0]].keepRight(end_path.slice(1));
-      if (left.children && right.children && !v && left.type==right.type) {
+      if (left.children && right!=null && right.children && left.type==right.type) {
         children.push(left.merge(right));
       } else {
         children.push(left);
-        if (v!=null) {
-          if (typeof v === 'string') children.push(new TinyReactRTENode(null, null, null, v));
-          else children.push(v);
-        }
-        children.push(right);
+        if (right!=null) children.push(right);
       }
       children = children.concat(this.children.slice(end_path[0]+1));
       console.log('d', children)
+      for (var i=start_path.length-1; i>=0; --i) {
+        ret_path.unshift(start_path[i]);
+      }
       return new TinyReactRTENode(this.id, this.type, children);
+    }
+  },
+
+  insert: function(insert_path, v, ret_path) {
+    console.log('insert', this, insert_path, v, ret_path)
+    if (insert_path.length > 1) {
+      ret_path.push(insert_path[0]);
+      var children = this.children.slice(0, insert_path[0]);
+      children.push(this.children[insert_path[0]].insert(insert_path.slice(1), v, ret_path));
+      children = children.concat(this.children.slice(insert_path[0]+1));
+      console.log('children', children)
+      return new TinyReactRTENode(this.id, this.type, children);
+    } else {
+      if (typeof v == 'string') {
+        var s = this.value.slice(0,insert_path[0]) + v + this.value.slice(insert_path[0]);
+        ret_path.push(insert_path[0] + v.length);
+        console.log('todoxxxx', s)
+        return new TinyReactRTENode(this.id, this.type, null, s);
+      } else {
+        console.log('todo')
+      }
     }
   },
   
@@ -78,9 +90,14 @@ TinyReactRTENode.prototype = {
 
   keepRight: function(path) {
     console.log('keepRight', this, path)
-    if (this.value!=null) return new TinyReactRTENode(this.id, this.type, null, this.value.slice(path[0]));
+    if (this.value!=null) {
+      if (path[0] >= this.value.length) return null;
+      return new TinyReactRTENode(this.id, this.type, null, this.value.slice(path[0]));
+    }
     var children = this.children.slice(path[0]+1);
-    children.unshift(this.children[path[0]].keepRight(path.slice(1)));
+    var x = this.children[path[0]].keepRight(path.slice(1));
+    if (x!=null) children.unshift(x);
+    if (children.length==0) return null;
     return new TinyReactRTENode(this.id, this.type, children);
   },
   
@@ -200,16 +217,22 @@ var TinyReactRTE = React.createClass({
   },
   
   push_selection: function() {
-    var push_selection = this.state.push_selection;
-    console.log('push_selection', push_selection);
-    if (push_selection==null) return;
+    var path = this.state.push_selection;
+    if (path==null) return;
+    console.log('push_selection', path);
+    var node = this.state.content;
+    console.log(node);
+    for(var i=0; i<path.length-2; ++i) {
+      node = node.children[path[i]];
+      console.log(node);
+    }
+    var dom = document.getElementById(node.id);
+    var children = toArray(dom.childNodes).filter(function(n) {return n.nodeType != Node.COMMENT_NODE});
+    console.log('dom', node.id, dom, dom.textContent, path[path.length-1], children)
+    dom = children[path[path.length-2]];
     var range = document.createRange();
     var selection = window.getSelection();
-    console.log('selection.anchorNode', selection.anchorNode, selection.anchorNode.textContent, selection.anchorNode.childNodes)
-    push_selection = Math.min(selection.anchorNode.textContent.length, push_selection);
-    var node = selection.anchorNode;
-    if (selection.anchorNode.childNodes.length) node = selection.anchorNode.childNodes[0];
-    range.setStart(node, push_selection);
+    range.setStart(dom, path[path.length-1]);
     range.collapse(true);
     selection.removeAllRanges();
     selection.addRange(range);
@@ -223,12 +246,16 @@ var TinyReactRTE = React.createClass({
     console.log('content', content);
     var v = e.key;
     if (v=='Enter') v = new TinyReactRTENode(null, 'br');
-    content = content.replace(this.state.start_path, this.state.end_path, v);
-    console.log('content', content);
+    var ret_path = []
+    content = content.del(this.state.start_path, this.state.end_path, ret_path);
+    console.log('content', content, ret_path);
+    var insert_path = ret_path;
+    ret_path = []
+    content = content.insert(insert_path, v, ret_path);
+    console.log('content2', content, ret_path);
+    
 //    this.saveState();
-    var push_selection = this.state.start_path[this.state.start_path.length-1] + 1;
-    console.log('xcxpush_selection', push_selection)
-    this.setState({content:content, push_selection:push_selection});
+    this.setState({content:content, push_selection:ret_path});
   },
   
   saveState: function() {
