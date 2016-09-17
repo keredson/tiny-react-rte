@@ -46,7 +46,7 @@ TinyReactRTENode.prototype = {
       var children = this.children.slice(0, start_path[0]);
       var left = this.children[start_path[0]].keepLeft(start_path.slice(1));
       var right = this.children[end_path[0]].keepRight(end_path.slice(1));
-      if (left.children && right.children && !v) {
+      if (left.children && right.children && !v && left.type==right.type) {
         children.push(left.merge(right));
       } else {
         children.push(left);
@@ -65,14 +65,12 @@ TinyReactRTENode.prototype = {
   merge: function(right) {
     var left = this;
     console.log('merge', left, right)
-//    if (left.children==null) left = new TinyReactRTENode(left.id, left.type, [left.value]);
-//    if (right.children==null) right = new TinyReactRTENode(right.id, right.type, [right.value]);
     return new TinyReactRTENode(left.id, left.type, left.children.concat(right.children));
   },
   
   keepLeft: function(path) {
     console.log('keepLeft', this, path)
-    if (path.length==1) return new TinyReactRTENode(this.id, this.type, null, this.value.slice(0,path[0]));
+    if (this.value!=null) return new TinyReactRTENode(this.id, this.type, null, this.value.slice(0,path[0]));
     var children = this.children.slice(0, path[0]);
     children.push(this.children[path[0]].keepLeft(path.slice(1)));
     return new TinyReactRTENode(this.id, this.type, children);
@@ -80,10 +78,18 @@ TinyReactRTENode.prototype = {
 
   keepRight: function(path) {
     console.log('keepRight', this, path)
-    if (path.length==1) return new TinyReactRTENode(this.id, this.type, null, this.value.slice(path[0]));
+    if (this.value!=null) return new TinyReactRTENode(this.id, this.type, null, this.value.slice(path[0]));
     var children = this.children.slice(path[0]+1);
     children.unshift(this.children[path[0]].keepRight(path.slice(1)));
     return new TinyReactRTENode(this.id, this.type, children);
+  },
+  
+  strip: function() {
+    if (this.children!=null) {
+      this.children = this.children.map(function(c) {return c.strip();}).filter(function(c) {return c!=null});
+    }
+    if (!this.value && NODES_NO_CHILDREN.indexOf(this.type)==-1 && (this.children==null || this.children.length==0)) return null;
+    return this;
   },
 
   toReact: function() {
@@ -131,21 +137,22 @@ function toArray(obj) {
     return out;
 }
 
-var ALLOWED_NODES = ['P','DIV','I','EM','B','BR','H1','H2','H3','A', 'UL', 'LI', 'IMG', 'U', 'STRONG', 'BLOCKQUOTE', 'SPAN', 'TABLE', 'TR', 'TD','TBODY','OL','PRE','CODE','ARTICLE'];
-var ALLOWED_ATTRIBUTES = {'A':['href'], 'IMG':['src']};
-var NODES_NO_CHILDREN = ['BR', 'IMG'];
+var ALLOWED_NODES = ['p','div','i','em','b','br','h1','h2','h3','h4','h5','a', 'ul', 'li','img','u','strong','blockquote','span','table','tr','td','tbody','thead','ol','pre','code','article','hr'];
+var ALLOWED_ATTRIBUTES = {'a':['href'], 'img':['src']};
+var NODES_NO_CHILDREN = ['br','img','hr'];
 
 function domToReact(node) {
   if (node.nodeType==3) return node.nodeValue;
   console.log(node.nodeName)
-  if (ALLOWED_NODES.indexOf(node.nodeName) < 0) return '';
+  var nodeName = node.nodeName.toLowerCase();
+  if (ALLOWED_NODES.indexOf(nodeName) < 0) return '';
   var children = null;
-  if (NODES_NO_CHILDREN.indexOf(node.nodeName) == -1) {
+  if (NODES_NO_CHILDREN.indexOf(nodeName) == -1) {
     children = toArray(node.childNodes).map(function(n) {
       return domToReact(n);
     });
   }
-  return new TinyReactRTENode(null, node.nodeName.toLowerCase(), children);
+  return new TinyReactRTENode(null, nodeName, children);
 }
 
 
@@ -198,8 +205,11 @@ var TinyReactRTE = React.createClass({
     if (push_selection==null) return;
     var range = document.createRange();
     var selection = window.getSelection();
+    console.log('selection.anchorNode', selection.anchorNode, selection.anchorNode.textContent, selection.anchorNode.childNodes)
     push_selection = Math.min(selection.anchorNode.textContent.length, push_selection);
-    range.setStart(selection.anchorNode, push_selection);
+    var node = selection.anchorNode;
+    if (selection.anchorNode.childNodes.length) node = selection.anchorNode.childNodes[0];
+    range.setStart(node, push_selection);
     range.collapse(true);
     selection.removeAllRanges();
     selection.addRange(range);
@@ -211,7 +221,9 @@ var TinyReactRTE = React.createClass({
     console.log('onKeyPress', e.key)
     var content = this.state.content;
     console.log('content', content);
-    content = content.replace(this.state.start_path, this.state.end_path, e.key);
+    var v = e.key;
+    if (v=='Enter') v = new TinyReactRTENode(null, 'br');
+    content = content.replace(this.state.start_path, this.state.end_path, v);
     console.log('content', content);
 //    this.saveState();
     var push_selection = this.state.start_path[this.state.start_path.length-1] + 1;
@@ -279,7 +291,7 @@ var TinyReactRTE = React.createClass({
       e.preventDefault();
       var content = this.state.content.replace(this.state.start_path, this.state.end_path, '');
       var push_selection = this.state.start_path[this.state.start_path.length-1];
-      this.setState({content:content, push_selection:push_selection});
+      this.setState({content:this.strip(content), push_selection:push_selection});
     }
   },
   
@@ -311,6 +323,12 @@ var TinyReactRTE = React.createClass({
     });
   },
   
+  strip: function(content) {
+    var newContent = content.strip();
+    if (newContent==null) newContent = new TinyReactRTENode(content.id, null, null, '');
+    return newContent;
+  },
+  
   onPaste: function(e) {
     e.stopPropagation();
     e.preventDefault();
@@ -319,20 +337,21 @@ var TinyReactRTE = React.createClass({
     console.log('onPaste', html || text);
     var value = html ? this.parseHTML(html) : text;
     var content = this.state.content.replace(this.state.start_path, this.state.end_path, value);
-    this.setState({content:content});
+    this.setState({content:this.strip(content)});
   },
   
     
   render: function() {
+    var content = this.state.content;
     return (
       <div>
         <div contentEditable="true" suppressContentEditableWarning="true" ref="root" style={{outline:"0px solid transparent", minHeight:'1.2em'}} 
           onKeyUp={this.onKeyUcp} onKeyDown={this.onKeyDown} onKeyPress={this.onKeyPress} onClick={this.onCclick} onSelect={this.onSelect} onPaste={this.onPaste}>
-          {this.state.content.toReact()}
+          {content.toReact()}
         </div>
         {this.props.showMarkup ? (
           <pre style={{borderTop:'1px solid #eee', marginTop:'1em', marginBottom:'0em', paddingTop:'1em', overflowX:'scroll'}}>
-            {this.state.content.toHTML(this.state.start_path, this.state.end_path)}
+            {content.toHTML(this.state.start_path, this.state.end_path)}
           </pre>
         ) : ''}
       </div>
