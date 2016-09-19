@@ -38,6 +38,7 @@ TinyReactRTENode.prototype = {
     } else {
       var children = this.children.slice(0, start_path[0]);
       var left = this.children[start_path[0]].keepLeft(start_path.slice(1));
+      console.log('this.children[end_path[0]', this.children, end_path[0])
       var right = this.children[end_path[0]].keepRight(end_path.slice(1));
       console.log('left', left)
       console.log('right', right)
@@ -117,6 +118,7 @@ s      } else {
 
   keepRight: function(path) {
     console.log('keepRight', this, path)
+    if (path.length==0) return this;
     if (this.value!=null) {
       if (path[0] >= this.value.length) return null;
       return new TinyReactRTENode(this.id, this.type, null, this.value.slice(path[0]));
@@ -134,6 +136,13 @@ s      } else {
     }
     if (!this.value && NODES_NO_CHILDREN.indexOf(this.type)==-1 && (this.children==null || this.children.length==0)) return null;
     return this;
+  },
+  
+  getNode: function(path) {
+    console.log('getNode', this, path);
+    if (path.length==0) return this;
+    if (this.children!=null) return this.children[path[0]].getNode(path.slice(1));
+    return this.value;
   },
 
   toReact: function() {
@@ -308,6 +317,29 @@ var TinyReactRTE = React.createClass({
   
   onClick: function(e) {
   },
+  
+  walkForward: function(path) {
+    path = path.slice(0);
+    for (var i=path.length; i>=0; --i) {
+      var node = this.state.content.getNode(path.slice(0,i));
+      console.log('walkForward', i, node, path.slice(0,i))
+      if (typeof node=='string' && node.length-1 > path[i-1]) {
+        console.log('walkForward3', node, path, i)
+        ++path[i-1];
+        return path.slice(0,i);
+      }
+      if (node!=null && node.children && node.children.length-1 > path[i]) {
+        console.log('walkForward2', node, path, i)
+        ++path[i];
+        path = path.slice(0,i+1);
+        while (node.children) {
+          node = node.children[path[path.length-1]];
+          path.push(0);
+        }
+        return path;
+      }
+    }
+  },
 
   onKeyDown: function(e) {
     if (e.key=="Unidentified") return;
@@ -316,6 +348,13 @@ var TinyReactRTE = React.createClass({
       e.preventDefault();
       var ret_path = []
       var content = this.state.content.del(this.state.start_path, this.state.end_path, ret_path);
+      this.setState({content:content, push_selection:ret_path});
+    } else if (e.key=="Delete") {
+      e.preventDefault();
+      var ret_path = []
+      var end_path = this.walkForward(this.state.end_path);
+      console.log('this.state.end_path', this.state.end_path, '=>', end_path)
+      var content = this.state.content.del(this.state.start_path, end_path, ret_path);
       this.setState({content:content, push_selection:ret_path});
     }
   },
@@ -385,7 +424,7 @@ var TinyReactRTE = React.createClass({
     
   render: function() {
     var content = this.state.content;
-    console.log('render', content)
+    console.log('render', this.state)
     var display_path = this.calc_display_path().map(function(x,i) {return (<span key={i}><span style={{color:'#bbb'}}>&nbsp;&gt;&nbsp;</span>{x}</span>);});
     return (
       <div>
