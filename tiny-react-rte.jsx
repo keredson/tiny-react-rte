@@ -68,10 +68,15 @@ s      } else {
       return new TinyReactRTENode(this.id, this.type, children);
     } else {
       if (typeof v == 'string') {
-        var s = this.value.slice(0,insert_path[0]) + v + this.value.slice(insert_path[0]);
-        ret_path.push(insert_path[0] + v.length);
-        console.log('todoxxxx', s)
-        return new TinyReactRTENode(this.id, this.type, null, s);
+        if (this.value==null || typeof this.value == 'undefined') {
+          ret_path.push(0);
+          ret_path.push(insert_path[0] + v.length);
+          return new TinyReactRTENode(this.id, this.type, [new TinyReactRTENode(null, null, null, v)]);
+        } else {
+          var s = this.value.slice(0,insert_path[0]) + v + this.value.slice(insert_path[0]);
+          ret_path.push(insert_path[0] + v.length);
+          return new TinyReactRTENode(this.id, null, null, s);
+        }
       } else {
         var right = this.value==null ? new TinyReactRTENode(null, 'span', this.children.slice(insert_path[0])) : new TinyReactRTENode(null, null, null, this.value.slice(insert_path[0]));
         console.log('middle', v)
@@ -259,16 +264,27 @@ var TinyReactRTE = React.createClass({
     var node = this.state.content;
     console.log(node);
     for(var i=0; i<path.length-2; ++i) {
+      if (typeof node.children[path[i]] == 'undefined') break;
       node = node.children[path[i]];
       console.log(node);
     }
+    console.log('node.id', node, node.id)
     var dom = document.getElementById(node.id);
     var children = toArray(dom.childNodes).filter(function(n) {return n.nodeType != Node.COMMENT_NODE});
-    console.log('dom', node.id, dom, dom.textContent, path[path.length-1], children)
-    dom = children[path[path.length-2]];
+    console.log('dom', node.id, dom, dom.textContent, path[path.length-1], children);
+    console.log('children[path[path.length-2]]', children[path[path.length-2]], path[path.length-2], path.length-2);
+    if (children[path[path.length-2]]) {
+      dom = children[path[path.length-2]];
+    }
     var range = document.createRange();
     var selection = window.getSelection();
-    range.setStart(dom, path[path.length-1]);
+    console.log('path[path.length-1]', path[path.length-1])
+    try {
+      range.setStart(dom, path[path.length-1]);
+    } catch(err) {
+      console.log('err', err)
+      range.setStart(dom, 0);
+    }
     range.collapse(true);
     selection.removeAllRanges();
     selection.addRange(range);
@@ -281,7 +297,11 @@ var TinyReactRTE = React.createClass({
     var content = this.state.content;
     console.log('content', content);
     var ret_path = []
-    content = content.del(this.state.start_path, this.state.end_path, ret_path);
+    if (this.state.is_range) {
+      content = content.del(this.state.start_path, this.state.end_path, ret_path);
+    } else {
+      ret_path = this.state.start_path;
+    }
     var v = e.key;
     if (v=='Enter') v = new TinyReactRTENode(null, 'br');
     var insert_path = ret_path;
@@ -323,7 +343,7 @@ var TinyReactRTE = React.createClass({
     for (var i=path.length; i>=0; --i) {
       var node = this.state.content.getNode(path.slice(0,i));
       console.log('walkForward', i, node, path.slice(0,i))
-      if (typeof node=='string' && node.length-1 > path[i-1]) {
+      if (typeof node=='string' && node.length > path[i-1]) {
         console.log('walkForward3', node, path, i)
         ++path[i-1];
         return path.slice(0,i);
@@ -336,7 +356,7 @@ var TinyReactRTE = React.createClass({
           node = node.children[path[path.length-1]];
           path.push(0);
         }
-        return path;
+        return this.walkForward(path);
       }
     }
   },
@@ -354,6 +374,7 @@ var TinyReactRTE = React.createClass({
       var ret_path = []
       var end_path = this.walkForward(this.state.end_path);
       console.log('this.state.end_path', this.state.end_path, '=>', end_path)
+//      this.setState({end_path:end_path});
       var content = this.state.content.del(this.state.start_path, end_path, ret_path);
       this.setState({content:content, push_selection:ret_path});
     }
@@ -416,8 +437,8 @@ var TinyReactRTE = React.createClass({
     var ret = [];
     var node = this.state.content;
     for (var i=0; i<path.length; ++i) {
-      if (node.type) ret.push(node.type);
-      if (i<path.length-1) node = node.children[path[i]];
+      if (node && node.type) ret.push(node.type);
+      if (i<path.length-1 && node) node = node.children[path[i]];
     }
     return ret;
   },
