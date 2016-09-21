@@ -144,7 +144,6 @@ s      } else {
   },
   
   getNode: function(path) {
-    console.log('getNode', this, path);
     if (path.length==0) return this;
     if (this.children!=null) return this.children[path[0]].getNode(path.slice(1));
     return this.value;
@@ -361,6 +360,39 @@ var TinyReactRTE = React.createClass({
     }
   },
 
+  walkBackward: function(path) {
+    console.log('walkBackward0', path)
+    path = path.slice(0);
+    for (var i=path.length; i>=0; --i) {
+      var node = this.state.content.getNode(path.slice(0,i));
+      console.log('walkBackward', i, node, path.slice(0,i))
+      if (typeof node=='string' && path[i-1] > 0) {
+        console.log('walkBackward3', node, path, i)
+        --path[i-1];
+        return path.slice(0,i);
+      }
+      if (node!=null && path[i-1] > 0) {
+        console.log('walkBackward2', node, path, i)
+        --path[i-1];
+        path = path.slice(0,i);
+        node = this.state.content.getNode(path);
+        console.log('xxxXXX', node, path)
+        while (node.children) {
+          var j = node.children.length - 1;
+          console.log('xxx', node, j, path)
+          path.push(j);
+          node = node.children[j];
+        }
+        console.log('nodexxx', node)
+        if (typeof node.value == 'string') {
+          path.push(node.value.length);
+        }
+        return path;
+      }
+    }
+    return [0];
+  },
+
   onKeyDown: function(e) {
     if (e.key=="Unidentified") return;
     if (e.key=="ArrowUp" || e.key=="ArrowDown" || e.key=="ArrowLeft" || e.key=="ArrowRight") return;
@@ -368,6 +400,14 @@ var TinyReactRTE = React.createClass({
       e.preventDefault();
       var ret_path = []
       var content = this.state.content.del(this.state.start_path, this.state.end_path, ret_path);
+      this.setState({content:content, push_selection:ret_path});
+    } else if (e.key=="Backspace") {
+      e.preventDefault();
+      var ret_path = []
+      var start_path = this.walkBackward(this.state.start_path);
+      console.log('this.state.start_path', this.state.start_path, '=>', start_path)
+//      this.setState({start_path:start_path});
+      var content = this.state.content.del(start_path, this.state.end_path, ret_path);
       this.setState({content:content, push_selection:ret_path});
     } else if (e.key=="Delete") {
       e.preventDefault();
